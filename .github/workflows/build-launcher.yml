@@ -17,7 +17,7 @@ env:
       "DefaultClientDirectory": "",
       "CertificateSha256": "e280e0f3dc74b6f76cee622354dadbdbb40ec7c3e9578f7adbb371cea79c5b47",
       "UpdatePublicKey": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAtRt2hqGjerlB7EgwwiZJ\nhkAwXvyzogE/YxZWVtXM/eiZEiMmNhh+3DmHpLcCPYbuwdsuRiXOJ0qhcqPyfOiV\niYbW8Iolu5u3fsRWqUyLe31rodj2uyylPoSVhxafpsooIwn0tqvjncaph194S/SD\nYt9N4036FadQwQt10j1y8AVD32xmK6F3X9yFL3KD+tzivee+NxXDRXmLyOkTJv6Z\npMLQa4McZDpouSUaK5G3zRGmB4s+O81M6Uc1oYzziSBlGb2EvYz734Ur2Jo7JgnM\ngp6yJtLYEtKkhBuwe5deMDj68c6Ifi2ZT4BaQQiIrEKqDMOBNY92yLm6bgyxT+LN\nF3hgQrwvoXkNYxI4EgTzQRUaGX4Nz2zThVUhxzl99z2HR96XQUFWFO0l8O9h8ykc\ngJBQgixsMKndydfa94h7dADkbPRE15xHI515g5YcZuB6OoGJ35cBlK/yrNykhhZ1\nDBukbV2ErU+9hS7AVgKAWqlnp6w7ojyvMvLQCo0xP6vTAgMBAAE=\n-----END PUBLIC KEY-----",
-      "ExeSha256": "f17d9289658664f1a61069f322ace28608d24f93f1af30f81698d534ab4a8484",
+      "ExeSha256": "7c64c854a02ecc1c3bb6ae7ee174733c5b2e5957fa8a76b88db2110fcc3df4ba",
       "PvfSha256": "11f364607ce713f1f905d9107e2f33a9fff9c1c5227a6a30ca5e51157bd323c9",
       "SettingsUrl": "https://106.54.37.178:8443/launcher/settings.json"
     }
