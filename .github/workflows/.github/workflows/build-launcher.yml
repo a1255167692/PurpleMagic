@@ -1,8 +1,11 @@
 name: build-launcher
+
 # 在 GitHub 的 Windows 机器上编译 PurpleMagic 登录器。
 # 用法：Actions → build-launcher → Run workflow
+
 on:
   workflow_dispatch:
+
 env:
   PROFILE_JSON: |
     {
@@ -18,27 +21,33 @@ env:
       "PvfSha256": "11f364607ce713f1f905d9107e2f33a9fff9c1c5227a6a30ca5e51157bd323c9",
       "SettingsUrl": "https://106.54.37.178:8443/launcher/settings.json"
     }
+
 jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 120
+
     steps:
       - uses: actions/checkout@v4
+
       - name: 安装 .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
+
       - name: 安装 Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+
       # 构建脚本内部用 `flutter pub get --offline`，先联网拉一次灌进缓存
       - name: 准备 Flutter 依赖
         working-directory: launcher/Flutter
         run: |
           flutter config --enable-windows-desktop
           flutter pub get
+
       # 仓库不含美术图，用自带 webp 占位（能跑，不好看，之后可替换）
       - name: 写入 profile 与占位美术
         shell: pwsh
@@ -46,16 +55,21 @@ jobs:
           New-Item -ItemType Directory -Path "runtime/launcher-input" -Force | Out-Null
           $env:PROFILE_JSON | Set-Content -Path "runtime/launcher-input/profile.json" -Encoding utf8NoBOM
           Get-Content "runtime/launcher-input/profile.json" -TotalCount 3
+
           $assets = "launcher/Flutter/assets"
+          New-Item -ItemType Directory -Path $assets -Force | Out-Null
           if (-not (Test-Path "$assets/background.webp"))   { Copy-Item "docs/images/launcher.webp" "$assets/background.webp" }
           if (-not (Test-Path "$assets/announcement.webp")) { Copy-Item "docs/images/benefits.webp" "$assets/announcement.webp" }
           Get-ChildItem $assets
+
       - name: 构建登录器
         shell: cmd
         run: BUILD_FLUTTER.bat --flutter "%FLUTTER_ROOT%" --dotnet dotnet --profile-dir runtime/launcher-input --output dist/PurpleMagic
+
       - name: 打包便携 EXE
         shell: cmd
         run: BUILD_PORTABLE.bat --bundle dist/PurpleMagic.zip --output dist/PurpleMagic.exe --dotnet dotnet
+
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
