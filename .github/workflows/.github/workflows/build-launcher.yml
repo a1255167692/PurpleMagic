@@ -1,0 +1,67 @@
+name: build-launcher
+# 在 GitHub 的 Windows 机器上编译 PurpleMagic 登录器。
+# 用法：Actions → build-launcher → Run workflow
+on:
+  workflow_dispatch:
+env:
+  PROFILE_JSON: |
+    {
+      "ApiUrl": "https://106.54.37.178:8443",
+      "GameHost": "106.54.37.178",
+      "BootstrapPort": 9001,
+      "ChannelServerId": 1,
+      "MinimumLauncherVersion": "0.2.18",
+      "DefaultClientDirectory": "",
+      "CertificateSha256": "e280e0f3dc74b6f76cee622354dadbdbb40ec7c3e9578f7adbb371cea79c5b47",
+      "UpdatePublicKey": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAtRt2hqGjerlB7EgwwiZJ\nhkAwXvyzogE/YxZWVtXM/eiZEiMmNhh+3DmHpLcCPYbuwdsuRiXOJ0qhcqPyfOiV\niYbW8Iolu5u3fsRWqUyLe31rodj2uyylPoSVhxafpsooIwn0tqvjncaph194S/SD\nYt9N4036FadQwQt10j1y8AVD32xmK6F3X9yFL3KD+tzivee+NxXDRXmLyOkTJv6Z\npMLQa4McZDpouSUaK5G3zRGmB4s+O81M6Uc1oYzziSBlGb2EvYz734Ur2Jo7JgnM\ngp6yJtLYEtKkhBuwe5deMDj68c6Ifi2ZT4BaQQiIrEKqDMOBNY92yLm6bgyxT+LN\nF3hgQrwvoXkNYxI4EgTzQRUaGX4Nz2zThVUhxzl99z2HR96XQUFWFO0l8O9h8ykc\ngJBQgixsMKndydfa94h7dADkbPRE15xHI515g5YcZuB6OoGJ35cBlK/yrNykhhZ1\nDBukbV2ErU+9hS7AVgKAWqlnp6w7ojyvMvLQCo0xP6vTAgMBAAE=\n-----END PUBLIC KEY-----",
+      "ExeSha256": "f17d9289658664f1a61069f322ace28608d24f93f1af30f81698d534ab4a8484",
+      "PvfSha256": "11f364607ce713f1f905d9107e2f33a9fff9c1c5227a6a30ca5e51157bd323c9",
+      "SettingsUrl": "https://106.54.37.178:8443/launcher/settings.json"
+    }
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      # 构建脚本内部用 `flutter pub get --offline`，先联网拉一次灌进缓存
+      - name: 准备 Flutter 依赖
+        working-directory: launcher/Flutter
+        run: |
+          flutter config --enable-windows-desktop
+          flutter pub get
+      # 仓库不含美术图，用自带 webp 占位（能跑，不好看，之后可替换）
+      - name: 写入 profile 与占位美术
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "runtime/launcher-input" -Force | Out-Null
+          $env:PROFILE_JSON | Set-Content -Path "runtime/launcher-input/profile.json" -Encoding utf8NoBOM
+          Get-Content "runtime/launcher-input/profile.json" -TotalCount 3
+          $assets = "launcher/Flutter/assets"
+          if (-not (Test-Path "$assets/background.webp"))   { Copy-Item "docs/images/launcher.webp" "$assets/background.webp" }
+          if (-not (Test-Path "$assets/announcement.webp")) { Copy-Item "docs/images/benefits.webp" "$assets/announcement.webp" }
+          Get-ChildItem $assets
+      - name: 构建登录器
+        shell: cmd
+        run: BUILD_FLUTTER.bat --flutter "%FLUTTER_ROOT%" --dotnet dotnet --profile-dir runtime/launcher-input --output dist/PurpleMagic
+      - name: 打包便携 EXE
+        shell: cmd
+        run: BUILD_PORTABLE.bat --bundle dist/PurpleMagic.zip --output dist/PurpleMagic.exe --dotnet dotnet
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: PurpleMagic
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            dist/PurpleMagic.exe
+            dist/PurpleMagic.zip
