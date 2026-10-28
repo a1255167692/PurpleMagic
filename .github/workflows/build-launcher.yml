@@ -62,6 +62,9 @@ jobs:
           if (-not (Test-Path "$assets/announcement.webp")) { Copy-Item "docs/images/benefits.webp" "$assets/announcement.webp" }
           Get-ChildItem $assets
 
+          Write-Host "===== 构建自检 ====="
+          Select-String -Path "runtime/launcher-input/profile.json" -Pattern "ExeSha256|PvfSha256" | ForEach-Object { Write-Host $_.Line.Trim() }
+
       - name: 构建登录器
         shell: cmd
         run: BUILD_FLUTTER.bat --flutter "%FLUTTER_ROOT%" --dotnet dotnet --profile-dir runtime/launcher-input --output dist/PurpleMagic
