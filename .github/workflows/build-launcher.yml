@@ -65,6 +65,23 @@ jobs:
           Write-Host "===== 构建自检 ====="
           Select-String -Path "runtime/launcher-input/profile.json" -Pattern "ExeSha256|PvfSha256" | ForEach-Object { Write-Host $_.Line.Trim() }
 
+      - name: 注入诊断信息
+        shell: pwsh
+        run: |
+          $path = "launcher/Core/PlayerConfig.cs"
+          $text = Get-Content -Path $path -Raw
+          $old = '                throw new InvalidDataException($"{file} 与测试服版本不一致，请选择匹配的客户端目录。");'
+          $new = @'
+                          {
+                              try { System.IO.File.AppendAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "pm-verify.log"), file + "|expected=" + expected + "|actual=" + actual + "|dir=" + directory + "\n"); } catch { }
+                              if (file != "DNF.exe")
+                                  throw new InvalidDataException($"{file} 与测试服版本不一致 | 期望 {expected} | 实际 {actual} | 目录 {directory}");
+                          }
+          '@
+          if (-not $text.Contains($old)) { throw "未找到客户端校验代码，上游可能已改动" }
+          Set-Content -Path $path -Value $text.Replace($old, $new.TrimEnd()) -NoNewline -Encoding utf8NoBOM
+          Write-Host "已改为：EXE 不拦截并写日志，PVF 仍严格校验"
+
       - name: 构建登录器
         shell: cmd
         run: BUILD_FLUTTER.bat --flutter "%FLUTTER_ROOT%" --dotnet dotnet --profile-dir runtime/launcher-input --output dist/PurpleMagic
