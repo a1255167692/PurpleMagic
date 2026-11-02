@@ -353,9 +353,19 @@ class LauncherController extends ChangeNotifier {
   }
 
   /// 卡密兑换：调用返回后 state.message 里就是服务端的结果文案。
-  Future<String> redeem(String code) async {
-    await client.call('redeem', {'code': code});
+  Future<String> redeem(String code, {String characterId = ''}) async {
+    await client.call('redeem', {'code': code, 'characterId': characterId});
     return message;
+  }
+
+  /// 兑换可选的投递角色（服务端按账号令牌返回）。
+  Future<List<Map<String, dynamic>>> characters() async {
+    final result = await client.call('characters', {});
+    final list = result['characters'];
+    if (list is List) {
+      return list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    }
+    return const [];
   }
 
   Future<bool> updateLauncher() async {

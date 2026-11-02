@@ -48,14 +48,25 @@ public sealed class PlayerApi : IDisposable
         response.EnsureSuccessStatusCode();
     }
     // 卡密兑换：用登录时拿到的令牌证明账号归属，服务端校验后发奖。
-    public async Task<LoginReply> Redeem(string account, string token, string code)
+    public async Task<LoginReply> Redeem(string account, string token, string code, string? characterId = null)
     {
         using var response = await Http.PostAsJsonAsync(Profile.ApiUrl + "/api/account/redeem",
-            new RedeemRequest(account, token, code), CoreJson.Default.RedeemRequest);
+            new RedeemRequest(account, token, code, string.IsNullOrWhiteSpace(characterId) ? null : characterId), CoreJson.Default.RedeemRequest);
         try { responseObserved?.Invoke((int)response.StatusCode); } catch (Exception) { }
         var reply = await response.Content.ReadFromJsonAsync(CoreJson.Default.LoginReply);
         if (reply?.Ok != true) throw new InvalidOperationException(reply?.Message ?? "兑换服务暂不可用。");
         return reply;
     }
+    // 拉取账号下的角色列表（兑换时选投递目标）。
+    public async Task<CharacterListReply> Characters(string account, string token)
+    {
+        using var response = await Http.PostAsJsonAsync(Profile.ApiUrl + "/api/account/characters",
+            new CharacterQuery(account, token), CoreJson.Default.CharacterQuery);
+        response.EnsureSuccessStatusCode();
+        var reply = await response.Content.ReadFromJsonAsync(CoreJson.Default.CharacterListReply);
+        if (reply?.Ok != true) throw new InvalidOperationException(reply?.Message ?? "读取角色列表失败。");
+        return reply;
+    }
+
     public void Dispose() => Http.Dispose();
 }

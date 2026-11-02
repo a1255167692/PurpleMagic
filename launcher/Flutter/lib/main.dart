@@ -1068,38 +1068,77 @@ class _PreviewHomeState extends State<PreviewHome> {
   /// 卡密兑换：需要先成功登录一次（令牌在核心里）。
   Future<void> _redeem() async {
     final input = TextEditingController();
+    // 先拉角色列表：道具卡要选投递到哪个角色（有些道具不可交易）。
+    List<Map<String, dynamic>> characters = const [];
+    try {
+      characters = await model.characters();
+    } catch (_) {
+      characters = const [];
+    }
+    if (!mounted) return;
+    var selected = characters.isEmpty ? '' : (characters.first['id']?.toString() ?? '');
     final code = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xff1d1a28),
-        title: const Text('兑换码', style: TextStyle(fontSize: 15, color: ink)),
-        content: TextField(
-          controller: input,
-          autofocus: true,
-          style: const TextStyle(fontSize: 13, color: ink),
-          decoration: const InputDecoration(
-            hintText: 'DNF90-XXXX-XXXX-XXXX',
-            hintStyle: TextStyle(fontSize: 12, color: muted),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xff1d1a28),
+          title: const Text('兑换码', style: TextStyle(fontSize: 15, color: ink)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: input,
+                autofocus: true,
+                style: const TextStyle(fontSize: 13, color: ink),
+                decoration: const InputDecoration(
+                  hintText: 'DNF90-XXXX-XXXX-XXXX',
+                  hintStyle: TextStyle(fontSize: 12, color: muted),
+                ),
+                onSubmitted: (value) => Navigator.pop(context, value),
+              ),
+              if (characters.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text('道具发到哪个角色', style: TextStyle(fontSize: 12, color: muted)),
+                const SizedBox(height: 4),
+                DropdownButton<String>(
+                  value: selected.isEmpty ? null : selected,
+                  isExpanded: true,
+                  dropdownColor: const Color(0xff1d1a28),
+                  style: const TextStyle(fontSize: 13, color: ink),
+                  items: characters
+                      .map((c) => DropdownMenuItem<String>(
+                            value: c['id']?.toString() ?? '',
+                            child: Text(
+                              '${c['name'] ?? ''}  Lv${c['level'] ?? ''}',
+                              style: const TextStyle(fontSize: 13, color: ink),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ))
+                      .toList(),
+                  onChanged: (value) => setDialogState(() => selected = value ?? ''),
+                ),
+              ],
+            ],
           ),
-          onSubmitted: (value) => Navigator.pop(context, value),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, input.text),
+              child: const Text('兑换'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, input.text),
-            child: const Text('兑换'),
-          ),
-        ],
       ),
     );
     input.dispose();
     final value = (code ?? '').trim();
     if (value.isEmpty || !mounted) return;
     try {
-      final result = await model.redeem(value);
+      final result = await model.redeem(value, characterId: selected);
       if (!mounted) return;
       await _article('兑换结果', result.isEmpty ? '兑换成功。' : result);
     } catch (failure) {

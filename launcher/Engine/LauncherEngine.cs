@@ -285,7 +285,7 @@ public sealed class LauncherEngine : IDisposable
         finally { operation.Release(); }
     }
     // 卡密兑换：必须在本次会话里成功登录过，才有可用令牌。
-    public async Task Redeem(string code)
+    public async Task Redeem(string code, string characterId = "")
     {
         if (string.IsNullOrWhiteSpace(loginToken)) throw new InvalidOperationException("请先登录一次，再兑换卡密。");
         if (!await operation.WaitAsync(0)) throw new InvalidOperationException("已有操作正在进行。");
@@ -293,12 +293,27 @@ public sealed class LauncherEngine : IDisposable
         {
             Emit("checking", "正在校验卡密…");
             using var api = new PlayerApi(Profile);
-            var reply = await api.Redeem(loginAccount, loginToken, (code ?? "").Trim());
+            var reply = await api.Redeem(loginAccount, loginToken, (code ?? "").Trim(), characterId);
             Emit("ready", reply.Message ?? "兑换成功。");
         }
         catch { Emit("error", "兑换未完成，请查看提示。"); throw; }
         finally { operation.Release(); }
     }
+    /// 拉取账号下的角色列表，供兑换时选择投递目标。
+    public async Task<CharacterView[]> ListCharacters()
+    {
+        if (string.IsNullOrWhiteSpace(loginToken)) throw new InvalidOperationException("请先登录一次，再选择角色。");
+        if (!await operation.WaitAsync(0)) throw new InvalidOperationException("已有操作正在进行。");
+        try
+        {
+            using var api = new PlayerApi(Profile);
+            var reply = await api.Characters(loginAccount, loginToken);
+            return (reply.Characters ?? Array.Empty<CharacterEntry>())
+                .Select(c => new CharacterView(c.id, c.name, c.level, c.job)).ToArray();
+        }
+        finally { operation.Release(); }
+    }
+
     public async Task Login(Credentials input)
     {        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
         if (!await operation.WaitAsync(0)) throw new InvalidOperationException("已有操作正在进行。");
