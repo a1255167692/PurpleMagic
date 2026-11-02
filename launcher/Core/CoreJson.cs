@@ -8,9 +8,11 @@ namespace ServerS5A3;
 [JsonSerializable(typeof(PlayerPreferences))]
 [JsonSerializable(typeof(LoginReply))]
 [JsonSerializable(typeof(AccountRequest))]
+[JsonSerializable(typeof(RedeemRequest))]
 [JsonSerializable(typeof(SignedEnvelope))]
 [JsonSerializable(typeof(UpdateSettings))]
 [JsonSerializable(typeof(ReleaseManifest))]
 public partial class CoreJson : JsonSerializerContext { }
 
 public sealed record AccountRequest(string account, string password, string device);
+public sealed record RedeemRequest(string account, string token, string code);
