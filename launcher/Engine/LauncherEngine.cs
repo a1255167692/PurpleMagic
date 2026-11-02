@@ -20,6 +20,9 @@ public sealed class LauncherEngine : IDisposable
     private Bootstrap? bootstrap;
     private byte[]? envelope;
     private Preferences preferences = new();
+    // 最近一次成功登录的账号与启动器令牌，用于卡密兑换（只在内存里，不落盘）。
+    private string loginAccount = "";
+    private string loginToken = "";
     private ContentFile[] plan = [];
     private string clientVersion = "";
     private readonly List<(string Account, Process Process)> games = [];
@@ -157,8 +160,13 @@ public sealed class LauncherEngine : IDisposable
             if (value.Diagnostics?.ProblemType is not (null or "auto" or "quests" or "interaction" or "connection" or "performance")) throw new InvalidDataException("诊断问题类型无效。");
             if (value.Diagnostics is { Enabled: true, HasConsent: false }) throw new InvalidOperationException("请先阅读并同意异常栈与游戏操作采集说明。");
             if (value.Account.Length > 64 || value.ClientDirectory.Length > 1000) throw new InvalidDataException("设置内容过长。");
+            if (value.Password.Length > 128) throw new InvalidDataException("密码过长。");
             var directoryChanged = value.ClientDirectory != preferences.ClientDirectory;
-            preferences = value with { Account = value.RememberAccount ? value.Account : "" };
+            preferences = value with
+            {
+                Account = value.RememberAccount ? value.Account : "",
+                Password = value.RememberAccount ? value.Password : "",
+            };
             SafeFiles.Atomic(Path.Combine(stateRoot, "preferences.json"), JsonSerializer.SerializeToUtf8Bytes(preferences, WireJson.Default.Preferences));
             diagnostics.Configure(preferences.Diagnostics ?? new(), preferences.ClientDirectory, Profile.PvfSha256, bootstrap?.Sequence ?? 0);
             if (directoryChanged) { plan = []; await Task.Run(RefreshClientVersion); }
@@ -276,9 +284,23 @@ public sealed class LauncherEngine : IDisposable
         catch { Emit("error", "注册未完成，请查看提示。"); throw; }
         finally { operation.Release(); }
     }
-    public async Task Login(Credentials input)
+    // 卡密兑换：必须在本次会话里成功登录过，才有可用令牌。
+    public async Task Redeem(string code)
     {
-        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
+        if (string.IsNullOrWhiteSpace(loginToken)) throw new InvalidOperationException("请先登录一次，再兑换卡密。");
+        if (!await operation.WaitAsync(0)) throw new InvalidOperationException("已有操作正在进行。");
+        try
+        {
+            Emit("checking", "正在校验卡密…");
+            using var api = new PlayerApi(Profile);
+            var reply = await api.Redeem(loginAccount, loginToken, (code ?? "").Trim());
+            Emit("ready", reply.Message ?? "兑换成功。");
+        }
+        catch { Emit("error", "兑换未完成，请查看提示。"); throw; }
+        finally { operation.Release(); }
+    }
+    public async Task Login(Credentials input)
+    {        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
         if (!await operation.WaitAsync(0)) throw new InvalidOperationException("已有操作正在进行。");
         try
         {
@@ -304,6 +326,8 @@ public sealed class LauncherEngine : IDisposable
             diagnostics.Event("channel_verified", stageClock.Elapsed.TotalMilliseconds, channels.ServerId); stageClock.Restart();
             Emit("logging-in", "正在验证账号…"); using var api = new PlayerApi(Profile, status => diagnostics.Event("account_http_response", number: status));
             var reply = await api.Submit("login", input.Account.Trim(), input.Password, Device());
+            loginAccount = input.Account.Trim();
+            loginToken = reply.Token ?? "";
             diagnostics.Event("account_verified", stageClock.Elapsed.TotalMilliseconds); stageClock.Restart();
             NativeChannelHistory.Prepare(Profile, channels);
             var executable = Path.Combine(preferences.ClientDirectory, "DNF.exe");

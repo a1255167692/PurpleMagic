@@ -122,6 +122,8 @@ class _PreviewHomeState extends State<PreviewHome> {
           setState(() {
             directory = model.clientDirectory;
             account.text = model.account;
+            // 记住密码：原生层已经把明文密码连同账号一起返回。
+            if (model.password.isNotEmpty) password.text = model.password;
             remember = model.rememberAccount;
           });
           if (launchArguments.length == 2 &&
@@ -677,7 +679,7 @@ class _PreviewHomeState extends State<PreviewHome> {
                 GestureDetector(
                   onTap: () => setState(() => remember = !remember),
                   child: const Text(
-                    '记住账号',
+                    '记住账号和密码',
                     style: TextStyle(fontSize: 11, color: muted),
                   ),
                 ),
@@ -686,6 +688,9 @@ class _PreviewHomeState extends State<PreviewHome> {
                   registering ? '已有账号？去登录' : '还没有账号？注册',
                   () => _mode(!registering),
                 ),
+                const SizedBox(width: 10),
+                // 卡密兑换：需要先登录拿到令牌，所以只在登录模式显示。
+                if (!registering) _link('兑换码', _redeem),
               ],
             ),
           ),
@@ -1060,6 +1065,52 @@ class _PreviewHomeState extends State<PreviewHome> {
     }
   }
 
+  /// 卡密兑换：需要先成功登录一次（令牌在核心里）。
+  Future<void> _redeem() async {
+    final input = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xff1d1a28),
+        title: const Text('兑换码', style: TextStyle(fontSize: 15, color: ink)),
+        content: TextField(
+          controller: input,
+          autofocus: true,
+          style: const TextStyle(fontSize: 13, color: ink),
+          decoration: const InputDecoration(
+            hintText: 'DNF90-XXXX-XXXX-XXXX',
+            hintStyle: TextStyle(fontSize: 12, color: muted),
+          ),
+          onSubmitted: (value) => Navigator.pop(context, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, input.text),
+            child: const Text('兑换'),
+          ),
+        ],
+      ),
+    );
+    input.dispose();
+    final value = (code ?? '').trim();
+    if (value.isEmpty || !mounted) return;
+    try {
+      final result = await model.redeem(value);
+      if (!mounted) return;
+      await _article('兑换结果', result.isEmpty ? '兑换成功。' : result);
+    } catch (failure) {
+      if (!mounted) return;
+      await _article(
+        '兑换失败',
+        failure.toString().replaceFirst('Bad state: ', ''),
+      );
+    }
+  }
+
   Future<void> _submit() async {
     if (submitting || model.busy || (!registering && !model.canLogin)) return;
     if (account.text.trim().isEmpty || password.text.isEmpty) {
@@ -1079,11 +1130,12 @@ class _PreviewHomeState extends State<PreviewHome> {
       await model.save(
         directory: directory,
         remembered: account.text.trim(),
+        rememberedPassword: password.text,
         remember: remember,
       );
       await model.submit(creating, account.text.trim(), password.text);
       if (!mounted) return;
-      password.clear();
+      if (!remember) password.clear();
       confirmation.clear();
       setState(() => submitting = false);
       if (creating) await _article('注册成功', '账号已创建，请切换到开始游戏并登录。');
@@ -1094,7 +1146,8 @@ class _PreviewHomeState extends State<PreviewHome> {
         );
       }
     } finally {
-      password.clear();
+      // 记住密码时保留输入框内容，避免登录失败后还要重新输入。
+      if (!remember) password.clear();
       confirmation.clear();
       if (mounted) {
         setState(() {

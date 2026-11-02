@@ -47,5 +47,15 @@ public sealed class PlayerApi : IDisposable
         using var response = await Http.GetAsync(Profile.ApiUrl + "/api/status");
         response.EnsureSuccessStatusCode();
     }
+    // 卡密兑换：用登录时拿到的令牌证明账号归属，服务端校验后发奖。
+    public async Task<LoginReply> Redeem(string account, string token, string code)
+    {
+        using var response = await Http.PostAsJsonAsync(Profile.ApiUrl + "/api/account/redeem",
+            new RedeemRequest(account, token, code), CoreJson.Default.RedeemRequest);
+        try { responseObserved?.Invoke((int)response.StatusCode); } catch (Exception) { }
+        var reply = await response.Content.ReadFromJsonAsync(CoreJson.Default.LoginReply);
+        if (reply?.Ok != true) throw new InvalidOperationException(reply?.Message ?? "兑换服务暂不可用。");
+        return reply;
+    }
     public void Dispose() => Http.Dispose();
 }

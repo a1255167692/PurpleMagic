@@ -13,7 +13,8 @@ public sealed record ContentRelease(string Version, string SourceId, string Chan
 public sealed record BundleRelease(string Version, string Url, long Size, string Sha256);
 public sealed record Bootstrap(string Product, int Format, long Sequence, PlayerProfile Profile, News[] News, ContentRelease? Content, BundleRelease? Launcher);
 // AutoCheck is the persisted legacy key; it now controls automatic check and installation of both update types.
-public sealed record Preferences(string ClientDirectory = "", string Account = "", bool RememberAccount = true, bool AutoCheck = true, bool ReducedEffects = false, DiagnosticOptions? Diagnostics = null);
+// Password 只在 RememberAccount 为真时保留，按运营方要求以明文存入 preferences.json。
+public sealed record Preferences(string ClientDirectory = "", string Account = "", bool RememberAccount = true, bool AutoCheck = true, bool ReducedEffects = false, DiagnosticOptions? Diagnostics = null, string Password = "");
 public sealed record State(string Phase, string Message, double Progress, long Downloaded, long Total, bool CanLogin, bool HasUpdate, bool HasLauncherUpdate, string Source, string Version, Preferences Preferences, News[] News)
 {
     public string LauncherVersion => LauncherEngine.VersionText;
@@ -25,6 +26,8 @@ public sealed record Response(int Id, bool Ok, string? Error = null, State? Stat
 public sealed record ConfigurationReset(bool Reset, string? BackupPath);
 public sealed record Event(string Type, State State);
 public sealed record Credentials(string Account, string Password);
+// 卡密兑换请求：token 来自上一次成功登录，服务端据此确认账号归属。
+public sealed record RedeemRequest(string Account, string Token, string Code);
 public sealed record TransactionEntry(string Path, bool HadOriginal);
 public sealed record TransactionJournal(string Phase, TransactionEntry[] Entries, string? PreviousReceipt);
 public sealed record BundleJob(string InstallRoot, string Package, string Envelope, int UiPid, long UiStart, int CorePid, long CoreStart, string Work, string Phase);
@@ -43,6 +46,7 @@ public sealed record BundleOutcome(string Version, bool Succeeded, string Reason
 [JsonSerializable(typeof(Response))]
 [JsonSerializable(typeof(Event))]
 [JsonSerializable(typeof(Credentials))]
+[JsonSerializable(typeof(RedeemRequest))]
 [JsonSerializable(typeof(TransactionJournal))]
 [JsonSerializable(typeof(BundleJob))]
 [JsonSerializable(typeof(BundleOutcome))]
