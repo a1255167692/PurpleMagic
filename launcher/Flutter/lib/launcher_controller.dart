@@ -127,6 +127,8 @@ class LauncherController extends ChangeNotifier {
   String launcherVersion = '';
   String clientVersion = '';
   String clientDirectory = '', account = '';
+  // 明文密码：仅当 rememberAccount 为真时由原生层写入 preferences.json。
+  String password = '';
   bool rememberAccount = true;
   bool diagnosticsEnabled = false, diagnosticBusy = false;
   int diagnosticConsentVersion = 0;
@@ -189,6 +191,7 @@ class LauncherController extends ChangeNotifier {
     final prefs = state['preferences'] as Map<String, dynamic>? ?? {};
     clientDirectory = prefs['clientDirectory'] as String? ?? '';
     account = prefs['account'] as String? ?? '';
+    password = prefs['password'] as String? ?? '';
     rememberAccount = prefs['rememberAccount'] != false;
     autoUpdate = prefs['autoCheck'] != false;
     reducedEffects = prefs['reducedEffects'] == true;
@@ -266,6 +269,7 @@ class LauncherController extends ChangeNotifier {
   Future<void> save({
     String? directory,
     String? remembered,
+    String? rememberedPassword,
     bool? remember,
     bool? effects,
     bool? check,
@@ -276,6 +280,7 @@ class LauncherController extends ChangeNotifier {
     await client.call('preferences', {
       'clientDirectory': directory ?? clientDirectory,
       'account': remembered ?? account,
+      'password': rememberedPassword ?? password,
       'rememberAccount': remember ?? rememberAccount,
       'autoCheck': check ?? autoUpdate,
       'reducedEffects': effects ?? reducedEffects,
@@ -345,6 +350,12 @@ class LauncherController extends ChangeNotifier {
       'account': account,
       'password': password,
     });
+  }
+
+  /// 卡密兑换：调用返回后 state.message 里就是服务端的结果文案。
+  Future<String> redeem(String code) async {
+    await client.call('redeem', {'code': code});
+    return message;
   }
 
   Future<bool> updateLauncher() async {

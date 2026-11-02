@@ -46,6 +46,7 @@ async Task Dispatch(Request request)
             case "preferences": await engine.SavePreferences(request.Args.Deserialize(WireJson.Default.Preferences) ?? throw new InvalidDataException()); break;
             case "register": await engine.Register(request.Args.Deserialize(WireJson.Default.Credentials) ?? throw new InvalidDataException()); break;
             case "login": await engine.Login(request.Args.Deserialize(WireJson.Default.Credentials) ?? throw new InvalidDataException()); break;
+            case "redeem": await engine.Redeem(request.Args.GetProperty("code").GetString() ?? ""); break;
             case "diagnosticExport":
                 var export = await engine.ExportDiagnostics(request.Args.GetProperty("sessionId").GetString()!, request.Args.GetProperty("path").GetString()!);
                 Respond(new(request.Id, true, State: engine.State, DiagnosticExport: export)); return;
