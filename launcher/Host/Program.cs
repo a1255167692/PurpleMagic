@@ -50,6 +50,13 @@ async Task Dispatch(Request request)
                 var redeemCode = request.Args.GetProperty("code").GetString() ?? "";
                 var target = request.Args.TryGetProperty("characterId", out var cid) && cid.ValueKind == JsonValueKind.String ? cid.GetString() ?? "" : "";
                 await engine.Redeem(redeemCode, target); break;
+            case "redeemBatch":
+                var batchCodes = request.Args.TryGetProperty("codes", out var codeList) && codeList.ValueKind == JsonValueKind.Array
+                    ? codeList.EnumerateArray().Select(e => e.GetString() ?? "").Where(x => x.Length > 0).ToArray()
+                    : Array.Empty<string>();
+                var batchTarget = request.Args.TryGetProperty("characterId", out var bcid) && bcid.ValueKind == JsonValueKind.String ? bcid.GetString() ?? "" : "";
+                var (redeemResults, redeemSummary) = await engine.RedeemBatch(batchCodes, batchTarget);
+                Respond(new(request.Id, true, State: engine.State, RedeemResults: redeemResults, RedeemSummary: redeemSummary)); return;
             case "characters":
                 var characters = await engine.ListCharacters();
                 Respond(new(request.Id, true, State: engine.State, Characters: characters)); return;

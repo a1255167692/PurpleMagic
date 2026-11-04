@@ -22,7 +22,7 @@ public sealed record State(string Phase, string Message, double Progress, long D
     public DiagnosticStatus? Diagnostics { get; init; }
 }
 public sealed record Request(int Id, string Method, JsonElement Args);
-public sealed record Response(int Id, bool Ok, string? Error = null, State? State = null, bool Restart = false, ConfigurationReset? ConfigurationReset = null, DiagnosticExport? DiagnosticExport = null, CharacterView[]? Characters = null);
+public sealed record Response(int Id, bool Ok, string? Error = null, State? State = null, bool Restart = false, ConfigurationReset? ConfigurationReset = null, DiagnosticExport? DiagnosticExport = null, CharacterView[]? Characters = null, RedeemResult[]? RedeemResults = null, string? RedeemSummary = null);
 public sealed record ConfigurationReset(bool Reset, string? BackupPath);
 public sealed record Event(string Type, State State);
 public sealed record Credentials(string Account, string Password);
@@ -30,6 +30,8 @@ public sealed record Credentials(string Account, string Password);
 public sealed record RedeemRequest(string Account, string Token, string Code, string CharacterId = "");
 // 兑换时可选的角色（来自服务端 /api/account/characters）。
 public sealed record CharacterView(string Id, string Name, int Level, string Job);
+// 批量兑换的单条结果。
+public sealed record RedeemResult(string Code, bool Ok, string Message);
 public sealed record TransactionEntry(string Path, bool HadOriginal);
 public sealed record TransactionJournal(string Phase, TransactionEntry[] Entries, string? PreviousReceipt);
 public sealed record BundleJob(string InstallRoot, string Package, string Envelope, int UiPid, long UiStart, int CorePid, long CoreStart, string Work, string Phase);
@@ -50,6 +52,7 @@ public sealed record BundleOutcome(string Version, bool Succeeded, string Reason
 [JsonSerializable(typeof(Credentials))]
 [JsonSerializable(typeof(RedeemRequest))]
 [JsonSerializable(typeof(CharacterView[]))]
+[JsonSerializable(typeof(RedeemResult[]))]
 [JsonSerializable(typeof(TransactionJournal))]
 [JsonSerializable(typeof(BundleJob))]
 [JsonSerializable(typeof(BundleOutcome))]

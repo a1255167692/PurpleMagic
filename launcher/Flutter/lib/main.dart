@@ -1066,9 +1066,9 @@ class _PreviewHomeState extends State<PreviewHome> {
   }
 
   /// 卡密兑换：需要先成功登录一次（令牌在核心里）。
+  /// 支持多张一次兑换——玩家从发卡网买一批后粘进来一次性领完。
   Future<void> _redeem() async {
     final input = TextEditingController();
-    // 先拉角色列表：道具卡要选投递到哪个角色（有些道具不可交易）。
     List<Map<String, dynamic>> characters = const [];
     try {
       characters = await model.characters();
@@ -1077,76 +1077,88 @@ class _PreviewHomeState extends State<PreviewHome> {
     }
     if (!mounted) return;
     var selected = characters.isEmpty ? '' : (characters.first['id']?.toString() ?? '');
-    final code = await showDialog<String>(
+    final text = await showDialog<String>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xff1d1a28),
           title: const Text('兑换码', style: TextStyle(fontSize: 15, color: ink)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: input,
-                autofocus: true,
-                style: const TextStyle(fontSize: 13, color: ink),
-                decoration: const InputDecoration(
-                  hintText: 'DNF90-XXXX-XXXX-XXXX',
-                  hintStyle: TextStyle(fontSize: 12, color: muted),
-                ),
-                onSubmitted: (value) => Navigator.pop(context, value),
-              ),
-              if (characters.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                const Text('道具发到哪个角色', style: TextStyle(fontSize: 12, color: muted)),
-                const SizedBox(height: 4),
-                DropdownButton<String>(
-                  value: selected.isEmpty ? null : selected,
-                  isExpanded: true,
-                  dropdownColor: const Color(0xff1d1a28),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('一行一张，可一次粘贴多张', style: TextStyle(fontSize: 12, color: muted)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: input,
+                  autofocus: true,
+                  minLines: 4,
+                  maxLines: 8,
                   style: const TextStyle(fontSize: 13, color: ink),
-                  items: characters
-                      .map((c) => DropdownMenuItem<String>(
-                            value: c['id']?.toString() ?? '',
-                            child: Text(
-                              '${c['name'] ?? ''}  Lv${c['level'] ?? ''}',
-                              style: const TextStyle(fontSize: 13, color: ink),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ))
-                      .toList(),
-                  onChanged: (value) => setDialogState(() => selected = value ?? ''),
+                  decoration: const InputDecoration(
+                    hintText: 'DNF90-XXXX-XXXX-XXXX\nDNF90-YYYY-YYYY-YYYY',
+                    hintStyle: TextStyle(fontSize: 12, color: muted),
+                  ),
                 ),
+                if (characters.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text('道具发到哪个角色', style: TextStyle(fontSize: 12, color: muted)),
+                  const SizedBox(height: 4),
+                  DropdownButton<String>(
+                    value: selected.isEmpty ? null : selected,
+                    isExpanded: true,
+                    dropdownColor: const Color(0xff1d1a28),
+                    style: const TextStyle(fontSize: 13, color: ink),
+                    items: characters
+                        .map((c) => DropdownMenuItem<String>(
+                              value: c['id']?.toString() ?? '',
+                              child: Text(
+                                '${c['name'] ?? ''}  Lv${c['level'] ?? ''}',
+                                style: const TextStyle(fontSize: 13, color: ink),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (value) => setDialogState(() => selected = value ?? ''),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, input.text),
-              child: const Text('兑换'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+            TextButton(onPressed: () => Navigator.pop(context, input.text), child: const Text('兑换')),
           ],
         ),
       ),
     );
     input.dispose();
-    final value = (code ?? '').trim();
-    if (value.isEmpty || !mounted) return;
+    final codes = (text ?? '')
+        .split(RegExp(r'[\s,;]+'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (codes.isEmpty || !mounted) return;
     try {
-      final result = await model.redeem(value, characterId: selected);
+      final reply = await model.redeemBatch(codes, characterId: selected);
       if (!mounted) return;
-      await _article('兑换结果', result.isEmpty ? '兑换成功。' : result);
+      final results = reply['redeemResults'];
+      final buffer = StringBuffer();
+      buffer.writeln(reply['redeemSummary'] ?? '兑换完成。');
+      buffer.writeln();
+      if (results is List) {
+        for (final item in results) {
+          if (item is! Map) continue;
+          final ok = item['ok'] == true;
+          buffer.writeln('${ok ? "✓" : "✗"} ${item['code'] ?? ""}  ${item['message'] ?? ""}');
+        }
+      }
+      await _article('兑换结果', buffer.toString());
     } catch (failure) {
       if (!mounted) return;
-      await _article(
-        '兑换失败',
-        failure.toString().replaceFirst('Bad state: ', ''),
-      );
+      await _article('兑换失败', failure.toString().replaceFirst('Bad state: ', ''));
     }
   }
 

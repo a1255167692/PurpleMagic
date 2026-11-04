@@ -13,6 +13,8 @@ namespace ServerS5A3;
 [JsonSerializable(typeof(CharacterEntry))]
 [JsonSerializable(typeof(CharacterEntry[]))]
 [JsonSerializable(typeof(CharacterListReply))]
+[JsonSerializable(typeof(BatchRedeemRequest))]
+[JsonSerializable(typeof(BatchRedeemReply))]
 [JsonSerializable(typeof(SignedEnvelope))]
 [JsonSerializable(typeof(UpdateSettings))]
 [JsonSerializable(typeof(ReleaseManifest))]
@@ -23,3 +25,6 @@ public sealed record RedeemRequest(string account, string token, string code, st
 public sealed record CharacterQuery(string account, string token);
 public sealed record CharacterEntry(string id, string name, int level, string job);
 public sealed record CharacterListReply(bool Ok, CharacterEntry[]? Characters, string? Message);
+public sealed record BatchRedeemRequest(string account, string token, string? characterId, string[] codes);
+public sealed record BatchRedeemItem(string code, bool ok, string message);
+public sealed record BatchRedeemReply(bool Ok, string Message, BatchRedeemItem[]? results, int succeeded, int failed);

@@ -358,6 +358,12 @@ class LauncherController extends ChangeNotifier {
     return message;
   }
 
+  /// 批量兑换：一次提交多张，返回逐张结果。
+  Future<Map<String, dynamic>> redeemBatch(List<String> codes, {String characterId = ''}) async {
+    final result = await client.call('redeemBatch', {'codes': codes, 'characterId': characterId});
+    return result;
+  }
+
   /// 兑换可选的投递角色（服务端按账号令牌返回）。
   Future<List<Map<String, dynamic>>> characters() async {
     final result = await client.call('characters', {});

@@ -299,6 +299,29 @@ public sealed class LauncherEngine : IDisposable
         catch { Emit("error", "兑换未完成，请查看提示。"); throw; }
         finally { operation.Release(); }
     }
+    /// 批量兑换：一次提交多张卡密，返回逐张结果。
+    public async Task<(RedeemResult[] Results, string Summary)> RedeemBatch(string[] codes, string characterId = "")
+    {
+        if (string.IsNullOrWhiteSpace(loginToken)) throw new InvalidOperationException("请先登录一次，再兑换卡密。");
+        var list = (codes ?? Array.Empty<string>()).Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).ToArray();
+        if (list.Length == 0) throw new InvalidOperationException("请至少输入一张卡密。");
+        if (!await operation.WaitAsync(0)) throw new InvalidOperationException("已有操作正在进行。");
+        try
+        {
+            Emit("checking", $"正在兑换 {list.Length} 张卡密…");
+            using var api = new PlayerApi(Profile);
+            var reply = await api.RedeemBatch(loginAccount, loginToken, characterId, list);
+            var results = (reply.results ?? Array.Empty<BatchRedeemItem>())
+                .Select(r => new RedeemResult(r.code, r.ok, r.message ?? "")).ToArray();
+            var summary = string.IsNullOrWhiteSpace(reply.Message)
+                ? $"成功 {reply.succeeded} 张，失败 {reply.failed} 张" : reply.Message;
+            Emit("ready", summary);
+            return (results, summary);
+        }
+        catch { Emit("error", "兑换未完成，请查看提示。"); throw; }
+        finally { operation.Release(); }
+    }
+
     /// 拉取账号下的角色列表，供兑换时选择投递目标。
     public async Task<CharacterView[]> ListCharacters()
     {

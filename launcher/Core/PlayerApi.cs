@@ -68,5 +68,17 @@ public sealed class PlayerApi : IDisposable
         return reply;
     }
 
+    // 批量兑换：一次提交多张卡密，逐张返回结果。
+    public async Task<BatchRedeemReply> RedeemBatch(string account, string token, string? characterId, string[] codes)
+    {
+        using var response = await Http.PostAsJsonAsync(Profile.ApiUrl + "/api/account/redeem-batch",
+            new BatchRedeemRequest(account, token, string.IsNullOrWhiteSpace(characterId) ? null : characterId, codes),
+            CoreJson.Default.BatchRedeemRequest);
+        response.EnsureSuccessStatusCode();
+        var reply = await response.Content.ReadFromJsonAsync(CoreJson.Default.BatchRedeemReply);
+        if (reply == null) throw new InvalidOperationException("兑换服务返回为空。");
+        return reply;
+    }
+
     public void Dispose() => Http.Dispose();
 }
